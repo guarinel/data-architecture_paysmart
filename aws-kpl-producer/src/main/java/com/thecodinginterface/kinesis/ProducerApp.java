@@ -39,7 +39,7 @@ public class ProducerApp implements Runnable{
     
     public JsonConverter valueConverter;
 
-    String streamName ="test_2";
+    String streamName ="mysql_db";
     String region = "us-east-1";
 
     Configuration customconnector; 
@@ -124,50 +124,50 @@ public class ProducerApp implements Runnable{
             payload = valueConverter.fromConnectData("", schema, message);   // Transforms Record     
             System.out.println(payload);
 
-            // // Starts KPL
-            // List<Future<UserRecordResult>> putFutures = new LinkedList<Future<UserRecordResult>>();
+            // Starts KPL
+            List<Future<UserRecordResult>> putFutures = new LinkedList<Future<UserRecordResult>>();
 
-
-            // // serialize and add to producer to be batched and sent to Kinesis
-            // ByteBuffer data = null;
-            // data = ByteBuffer.wrap(payload);
+            // serialize and add to producer to be batched and sent to Kinesis
+            ByteBuffer data = null;
+            data = ByteBuffer.wrap(payload);
         
-            // String partitionKey = String.valueOf(record.key() != null ? record.key().hashCode() : -1);
+            String partitionKey = String.valueOf(record.key() != null ? record.key().hashCode() : -1);
 
-            // ListenableFuture<UserRecordResult> future = this.producer.addUserRecord(
-            //     streamName,
-            //     partitionKey,
-            //     data
-            // );
-            // putFutures.add(future);
+            ListenableFuture<UserRecordResult> future = this.producer.addUserRecord(
+                streamName,
+                partitionKey,
+                data
+            );
+            putFutures.add(future);
 
-            // // register a callback handler on the async Future
-            // Futures.addCallback(future, new FutureCallback<UserRecordResult>() {
-            //     @Override
-            //     public void onFailure(Throwable t) {
-            //         logger.error("Failed to produce batch", t);
-            //     }
+            // register a callback handler on the async Future
+            Futures.addCallback(future, new FutureCallback<UserRecordResult>() {
+                @Override
+                public void onFailure(Throwable t) {
+                    logger.error("Failed to produce batch", t);
+                }
 
-            //     @Override
-            //     public void onSuccess(UserRecordResult result) {
-            //         logger.info(String.format("Produced User Record to shard %s at position %s",
-            //                             result.getShardId(),
-            //                             result.getSequenceNumber()));
-            //     }
-            // }, MoreExecutors.directExecutor());
+                @Override
+                public void onSuccess(UserRecordResult result) {
+                    logger.info(String.format("Produced User Record to shard %s at position %s",
+                                        result.getShardId(),
+                                        result.getSequenceNumber()));
+                }
+            }, MoreExecutors.directExecutor());
         }
         
     @Override 
     public void run(){
 
-        // var producerConfig = new KinesisProducerConfiguration().setRegion(region);
+        var producerConfig = new KinesisProducerConfiguration().setRegion(region);
+        // System.out.println(producerConfig);
 
-        // // instantiate KPL client
-        // this.producer = new KinesisProducer(producerConfig);
-        // Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-        //     logger.info("Shutting down program");
-        //     producer.flush();
-        // }, "producer-shutdown"));
+        // instantiate KPL client
+        this.producer = new KinesisProducer(producerConfig);
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            logger.info("Shutting down program");
+            producer.flush();
+        }, "producer-shutdown"));
 
         customconnector = customerConnector();
         engine = create_engine(customconnector);

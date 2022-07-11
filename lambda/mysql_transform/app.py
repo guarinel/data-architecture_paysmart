@@ -17,21 +17,23 @@ def lambda_handler(event, context):
     
     # # get the object
     obj = s3.get_object(Bucket=bucket_name, Key=file_key)
-    # # get lines inside the csv
+    # # get lines inside the file
     lines = obj['Body'].read().split(b'\n')
-    
+
+    #load changes (key: after) in file (database)
     list_of_values_to_df = [
         json.loads(updated_value.decode())['value']['after']
         for updated_value in lines
         ]
         
-    table  = change_value['value']['source']['table']
-    execution_time = str(change_value['value']['ts_ms'])
-    file_name = f"{table}/{execution_time}-{table}.csv"
-
+    #get table and last execution time
+    last_event = json.loads(lines[-1].decode())
+    table  =  last_event['value']['source']['table']
+    execution_time = str(last_event['value']['ts_ms'])
+    file_name = f"{table}/{execution_time}-{table}.parquet"
         
+
     df_change_values = pd.DataFrame(list_of_values_to_df)
     
     path_to_file = f"s3://{bucket_name_destino}/{file_name}"
-
     wr.s3.to_parquet(df_change_values, path_to_file)

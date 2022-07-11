@@ -1,5 +1,6 @@
 import json
 import boto3
+import awswrangler as wr
 import pandas as pd
 
 s3 = boto3.client('s3')
@@ -18,13 +19,11 @@ def lambda_handler(event, context):
     obj = s3.get_object(Bucket=bucket_name, Key=file_key)
     # # get lines inside the csv
     lines = obj['Body'].read().split(b'\n')
-    list_of_values_to_df = []
     
-    for r in lines:
-        decoded_string = r.decode()
-        change_value = json.loads(decoded_string)
-
-        list_of_values_to_df.append(change_value['value']['after'])
+    list_of_values_to_df = [
+        json.loads(updated_value.decode())['value']['after']
+        for updated_value in lines
+        ]
         
     table  = change_value['value']['source']['table']
     execution_time = str(change_value['value']['ts_ms'])
@@ -33,6 +32,6 @@ def lambda_handler(event, context):
         
     df_change_values = pd.DataFrame(list_of_values_to_df)
     
-    df_change_values.to_csv("/tmp/df.csv", index = False)
-    
-    s3_r.Bucket(bucket_name_destino).upload_file("/tmp/df.csv", file_name)
+    path_to_file = f"s3://{bucket_name_destino}/{file_name}"
+
+    wr.s3.to_parquet(df_change_values, path_to_file)
